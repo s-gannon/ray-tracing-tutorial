@@ -13,6 +13,11 @@
 #define WIN_HEIGHT	480
 #define DEBUG_STATEMENTS true
 
+typedef struct state_s {
+	SDL_Window* window;
+	SDL_Renderer* renderer;
+} state_t;
+
 int main(void){
 	//if(SDL_Init(SDL_INIT_VIDEO) < 0){
 	//	perror("[ERROR] Initializing SDL video");

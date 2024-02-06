@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <stdbool.h>
 
 #include "pnm.h"
 
@@ -12,23 +11,23 @@
 #define TAB       	'\t'
 #define NEWLINE   	'\n'
 
-#define DEBUG_STATEMENTS false
+#define DEBUG_STATEMENTS 0
 
-bool pnm_create_rgba(rgba_t* dest, uint16_t r, uint16_t g, uint16_t b, uint16_t a, uint16_t max_val){
+int pnm_create_rgba(rgba_t* dest, uint32_t r, uint32_t g, uint32_t b, uint32_t a, uint32_t max_val){
 	dest->r = round(((double)r / (double)max_val) * RGB_MAX);	//this should only round to at most 255
 	dest->g = round(((double)g / (double)max_val) * RGB_MAX);
 	dest->b = round(((double)b / (double)max_val) * RGB_MAX);
 	dest->a = round(((double)a / (double)max_val) * RGB_MAX);
 
 	if(dest->r > max_val)
-		return false;
+		return 0;
 	if(dest->g > max_val)
-		return false;
+		return 0;
 	if(dest->b > max_val)
-		return false;
+		return 0;
 	if(dest->a > max_val)
-		return false;
-	return true;
+		return 0;
+	return 1;
 }
 
 pnm_t pnm_init(char* path){
@@ -63,9 +62,9 @@ pnm_t pnm_init(char* path){
 	switch(image.type){	//todo: change from switch to if - else if - else
 		case 1:{	//pbm, bitmap with only white and black pixels
 			const rgba_t COL_WHITE = (rgba_t){
-				.r = 255, 
-				.g = 255, 
-				.b = 255, 
+				.r = RGB_MAX, 
+				.g = RGB_MAX, 
+				.b = RGB_MAX, 
 				.a = FULL_ALPHA
 			};
 			const rgba_t COL_BLACK = (rgba_t){
@@ -75,7 +74,7 @@ pnm_t pnm_init(char* path){
 				.a = FULL_ALPHA
 			};
 
-			bool stop_read = false;
+			int stop_read = 0;
 
 			while(!stop_read){
 				char input;
@@ -118,7 +117,7 @@ pnm_t pnm_init(char* path){
 						break;	//just skip the whitespace characters
 					}
 					case EOF:{
-						stop_read = true;	//end the loop
+						stop_read = 1;	//end the loop
 						break;
 					}
 					default:{
@@ -142,18 +141,71 @@ pnm_t pnm_init(char* path){
 			break;
 		}
 		case 2:{	//black and white image
-			fprintf(
-				stderr,
-				"[ERROR] P2 file type not supported!\n"
-			);
-			exit(EXIT_FAILURE);
+			int input;
+
+			while((fscanf(file, "%d", &input)) != EOF){
+				if(DEBUG_STATEMENTS)
+					fprintf(
+						stdout, 
+						"[DEBUG] Reading pixel %d...\n", 
+						pixels_read
+					);
+				if(input > image.max_val){
+					fprintf(
+						stderr,
+						"[ERROR] Value is larger than the max value!\n"
+					);
+					fprintf(stderr,"Value: %d\n", input);
+					exit(EXIT_FAILURE);
+				}
+				int ret_value = pnm_create_rgba(
+					&image.data[pixels_read++], 
+					input, 
+					input, 
+					input, 
+					FULL_ALPHA, 
+					image.max_val
+				);
+
+				if(ret_value){
+					if(DEBUG_STATEMENTS)
+						fprintf(
+							stdout, 
+							"[DEBUG] Pixel %d read successfully!\n",
+							pixels_read - 1
+						);
+				}
+				else{
+					fprintf(
+						stderr, 
+						"[ERROR] Error reading P2 image data!\n"
+					);
+					exit(EXIT_FAILURE);
+				}
+			}
+
+			if(pixels_read != (image.width * image.height)){
+				fprintf(
+					stderr, 
+					"[ERROR] Number of pixels read is invalid!\n"
+				);
+				fprintf(stderr, "Number read: %d\n", pixels_read);
+				fprintf(
+					stderr,
+					"Dimensions : %d by %d (%d pixels)\n",
+					image.width,
+					image.height,
+					image.width * image.height
+				);
+				exit(EXIT_FAILURE);
+			}
 
 			break;
 		}
 		case 3:{	//standard RGB image
 			int input;
-			uint8_t col_val = 0;
-			uint8_t temp_rgb[3];
+			uint32_t col_val = 0;
+			uint32_t temp_rgb[3];
 
 			while((fscanf(file, "%d", &input)) != EOF){
 				if(DEBUG_STATEMENTS)
